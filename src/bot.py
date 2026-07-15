@@ -71,10 +71,12 @@ async def main() -> None:
 
     await init_db()
     
-    # 1. Запуск вебсервера для Render
-    web_server_site = await start_web_server()
+    # Запускає вебсервер як фоновий таск, щоб він стартував миттєво і паралельно
+    web_server_task = asyncio.create_task(start_web_server())
+    # Дає йому мікропаузу в 0.1 секунди, щоб він точно проініціалізувався
+    await asyncio.sleep(0.1)
     
-    # 2. Запуск фонового циклу нагадувань
+    # Запуск фонового циклу нагадувань
     scheduler_task = asyncio.create_task(reminder_loop(bot))
     
     try:
@@ -92,8 +94,8 @@ async def main() -> None:
         except asyncio.CancelledError:
             logging.info("Scheduler task cancelled")
 
-        # Зупиняємо вебсервер
-        await web_server_site.stop()
+        # Скасовуємо таск вебсервера
+        web_server_task.cancel()
         logging.info("Вебсервер зупинено")
 
         if bot:
