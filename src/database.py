@@ -259,6 +259,7 @@ async def update_reminder_due(reminder_id: int, next_due_iso: str) -> None:
 async def get_user_language(user_id: int) -> str:
     """Повертає мову користувача (за замовчуванням 'uk')."""
     async with aiosqlite.connect(DB_PATH) as db:
+        # Спочатку намагається дізнатися мову
         async with db.execute(
             "SELECT language FROM users WHERE user_id = ?", (user_id,)
         ) as cursor:
@@ -266,11 +267,16 @@ async def get_user_language(user_id: int) -> str:
             if row:
                 return row[0]
             
-            # Якщо користувача немає, створює його з українською за замовчуванням
+            # Якщо користувача немає, створює його за допомогою безпечного INSERT OR IGNORE.
+            # Навіть якщо два таски спробують зробити це одночасно, помилки НЕ буде.
             await db.execute(
-                "INSERT INTO users (user_id, language) VALUES (?, ?)", (user_id, 'uk')
+                "INSERT OR IGNORE INTO users (user_id, language) VALUES (?, ?)", 
+                (user_id, 'uk')
             )
             await db.commit()
+            
+            # На випадок, якщо щойно інший таск його вже створив, 
+            # або щойно його створили — повертає дефолтну мову 'uk'
             return 'uk'
 
 async def set_user_language(user_id: int, lang: str) -> None:
